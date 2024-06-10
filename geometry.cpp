@@ -6,7 +6,7 @@
 
 Geometry::Geometry(QObject *parent)
 {
-
+    m_layerId = 1;
 }
 
 Geometry::~Geometry()
@@ -16,33 +16,45 @@ Geometry::~Geometry()
 
 void Geometry::addSoilLayer(const QString name, const QString soilCode, const QList<QPointF> &points)
 {
-    QList<QPointF> p1;
-    QList<QPointF> p2;
-    p1 << QPointF(0.0, 0.0) << QPointF(10.0, 0.0) << QPointF(10.0, -10.0) << QPointF(0.0, -10.0);
-    // p2 << QPointF(5.0, 2.0) << QPointF(12.0, 2.0) << QPointF(12.0, -1.0) << QPointF(5.0, -1.0);
-    p2 << QPointF(4.0, 1.0) << QPointF(6.0, 1.0) << QPointF(6.0, -11.0) << QPointF(4.0, -11.0);
-    QPolygonF pg1(p1);
-    QPolygonF pg2(p2);
+    // start with a clean list of soillayers
+    QList<SoilLayer> newSoilLayers;
 
-    qDebug() << pg1.subtracted(pg2);
-    qDebug() << pg2.subtracted(pg1);
+    // add the new one
+    SoilLayer sl = SoilLayer(++m_layerId, name, soilCode, points);
+    newSoilLayers.append(sl);
 
-    // // check if this polygon intersectes other ones, if so subtract this polygon from the others
-    // for(SoilLayer &sl : m_soillayers){
-    //     QPolygonF pgOld = sl.asPolygonF();
-    //     QPolygonF pgNew = QPolygonF(points);
+    // check for intersections
+    for(SoilLayer &sl : m_soillayers){
+        QPolygonF pgOld = sl.asPolygonF();
+        QPolygonF pgNew = QPolygonF(points);
 
-    //     if(pgNew.intersects(pgOld)){
-    //         QPolygonF subtracted = pgOld.subtracted(pgNew);
-    //         qDebug () << "Intersection detected!" << subtracted;
+        if(pgNew.intersects(pgOld)){
+            QPolygonF pgSubtracted = pgOld.subtracted(pgNew);
+            // the result can have points like a,b,c,d,a,e,f,g,h,e,a
+            // so we want to create multiple layers -> [a, b, c, d] and [e, f, g, h]
+            QList<QPointF> subtractedLayerPoints = pgSubtracted.toList();
+            QList<QPointF> newLayerPoints;
+            while(subtractedLayerPoints.count() > 0){
+                newLayerPoints.append(subtractedLayerPoints.at(0));
+                if(newLayerPoints.count() > 1 && newLayerPoints.at(0) == subtractedLayerPoints.at(0)){
+                    int soilLayerId = m_soillayers.count();
+                    newLayerPoints.pop_back();
+                    newSoilLayers.append(SoilLayer(0, sl.name(), sl.materialCode(), newLayerPoints));
+                    newLayerPoints.clear();
+                }
+                subtractedLayerPoints.pop_front();
+            }
+        }else{
+            newSoilLayers.append(SoilLayer(0, sl.name(), sl.materialCode(), sl.points()));
+        }
+    }
 
-
-    //     }
-    // }
-
-    // int soilLayerId = m_soillayers.count();
-    // SoilLayer sl = SoilLayer(soilLayerId, name, soilCode, points);
-    // m_soillayers.append(sl);
+    // remove the old, add the new
+    m_soillayers.clear();
+    for(SoilLayer &sl : newSoilLayers){
+        int soilLayerId = m_soillayers.count();
+        m_soillayers.append(SoilLayer(soilLayerId, sl.name(), sl.materialCode(), sl.points()));
+    }
 }
 
 bool Geometry::lineIsCrossingOtherLines(const QLine &l1)
@@ -167,5 +179,6 @@ float Geometry::bottom()
     }
     return result;
 }
+
 
 

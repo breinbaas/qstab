@@ -24,6 +24,7 @@ public:
     SoilLayer *soilLayerById(const int soilLayerId);
     void removeLayerBydId(const int soilLayerId);
 
+
     float left();
     float right();
     float top();
@@ -33,6 +34,7 @@ private:
     QString m_name;
     QList<SoilLayer> m_soillayers;
 
+    int m_layerId;
 };
 
 #endif // GEOMETRY_H
